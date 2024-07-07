@@ -1,0 +1,12 @@
+/build
+/install
+/third_parties
+/client/build
+/ci/github/bin
+/ci/github/SysinternalsSuite.zip
+.DS_Store
+.vscode
+/ci/github/badge.json
+/badge.json
+/ci/appveyor/bin
+/ci/appveyor/SysinternalsSuite.zip
