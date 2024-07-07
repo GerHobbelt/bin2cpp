@@ -393,7 +393,7 @@ namespace ra { namespace process {
     }
     //get the path of this process
     char buffer[MAX_PATH] = { 0 };
-    if (!GetModuleFileName(hModule, buffer, sizeof(buffer))) {
+    if (!GetModuleFileNameA(hModule, buffer, sizeof(buffer))) {
       int ret = GetLastError();
       return path; //failure
     }
@@ -594,12 +594,12 @@ namespace ra { namespace process {
 
     //launch a new process with the command line
     PROCESS_INFORMATION process_info = { 0 };
-    STARTUPINFO startup_info = { 0 };
+    STARTUPINFOA startup_info = { 0 };
     startup_info.cb = sizeof(STARTUPINFO);
     startup_info.dwFlags = STARTF_USESHOWWINDOW;
     startup_info.wShowWindow = SW_SHOWDEFAULT; //SW_SHOW, SW_SHOWNORMAL
     static const DWORD creation_flags = 0; //EXTENDED_STARTUPINFO_PRESENT
-    bool success = (CreateProcess(NULL, (char*)command.c_str(), NULL, NULL, FALSE, creation_flags, NULL, default_directory.c_str(), &startup_info, &process_info) != 0);
+    bool success = (CreateProcessA(NULL, (char*)command.c_str(), NULL, NULL, FALSE, creation_flags, NULL, default_directory.c_str(), &startup_info, &process_info) != 0);
     if (success) {
       //Wait for the application to initialize properly
       WaitForInputIdle(process_info.hProcess, INFINITE);
@@ -659,7 +659,7 @@ namespace ra { namespace process {
       return false; //file not found
 
 #ifdef _WIN32
-    SHELLEXECUTEINFO info = { 0 };
+    SHELLEXECUTEINFOA info = { 0 };
 
     info.cbSize = sizeof(SHELLEXECUTEINFO);
 
@@ -674,7 +674,7 @@ namespace ra { namespace process {
     info.lpParameters = NULL; //arguments
     info.lpDirectory = NULL; // default directory
 
-    BOOL success = ShellExecuteEx(&info);
+    BOOL success = ShellExecuteExA(&info);
     if (success) {
       HANDLE hProcess = info.hProcess;
       DWORD pid = GetProcessId(hProcess);

@@ -137,7 +137,11 @@ namespace ra { namespace environment {
 
 #ifdef _WIN32
     // Get a pointer to the environment block.
-    LPCH lpvEnv = GetEnvironmentStrings();
+#ifdef UNICODE
+#undef GetEnvironmentStrings  
+#define GetEnvironmentStringsA  GetEnvironmentStrings
+#endif // !UNICODE
+		LPCH lpvEnv = GetEnvironmentStrings();
 
     // If the returned pointer is NULL, exit.
     if (lpvEnv == NULL)
@@ -165,9 +169,9 @@ namespace ra { namespace environment {
       }
 
       //next definition
-      lpvTmp += lstrlen(lpvTmp) + 1;
+      lpvTmp += strlen(lpvTmp) + 1;
     }
-    FreeEnvironmentStrings(lpvEnv);
+    FreeEnvironmentStringsA(lpvEnv);
 #else
     char *s = *environ;
 

@@ -51,7 +51,7 @@ namespace ra { namespace user {
     // CSIDL_COMMON_APPDATA   matches "C:\ProgramData"
     // CSIDL_COMMON_DOCUMENTS matches "C:\Users\Public\Documents"
     char path[MAX_PATH];
-    if (SUCCEEDED(SHGetSpecialFolderPath(NULL, path, csidl, FALSE))) {
+    if (SUCCEEDED(SHGetSpecialFolderPathA(NULL, path, csidl, FALSE))) {
       return path;
     }
     return "";
@@ -115,7 +115,7 @@ namespace ra { namespace user {
 #ifdef _WIN32
     char username[UNLEN + 1] = { 0 };
     DWORD size = UNLEN + 1;
-    if (SUCCEEDED(GetUserName(username, &size))) {
+    if (SUCCEEDED(GetUserNameA(username, &size))) {
       return username;
     }
 

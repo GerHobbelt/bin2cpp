@@ -270,8 +270,8 @@ namespace ra { namespace filesystem {
     NormalizePath(query);
     query << "\\*";
 
-    WIN32_FIND_DATA find_data;
-    HANDLE hFind = FindFirstFile(query.c_str(), &find_data);
+    WIN32_FIND_DATAA find_data;
+    HANDLE hFind = FindFirstFileA(query.c_str(), &find_data);
 
     if (hFind == INVALID_HANDLE_VALUE)
       return false;
@@ -295,7 +295,7 @@ namespace ra { namespace filesystem {
     }
 
     //next files in directory
-    while (FindNextFile(hFind, &find_data)) {
+    while (FindNextFileA(hFind, &find_data)) {
       filename = find_data.cFileName;
       bool is_directory = ((find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0);
       bool is_junction = ((find_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0); //or JUNCTION, SYMLINK or MOUNT_POINT
@@ -650,7 +650,7 @@ std::string GetTemporaryDirectoryFromEnvVar(const char * name) {
 
 #ifdef _WIN32
     // First obtain the size needed by passing NULL and 0.
-    long length = GetShortPathName(path.c_str(), NULL, 0);
+    long length = GetShortPathNameA(path.c_str(), NULL, 0);
     if (length == 0)
       return "";
 
@@ -659,7 +659,7 @@ std::string GetTemporaryDirectoryFromEnvVar(const char * name) {
     char * buffer = new char[length];
 
     // Now simply call again using same long path.
-    length = GetShortPathName(path.c_str(), buffer, length);
+    length = GetShortPathNameA(path.c_str(), buffer, length);
     if (length == 0)
       return "";
 

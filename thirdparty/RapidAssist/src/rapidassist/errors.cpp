@@ -68,7 +68,7 @@ namespace ra { namespace errors {
     DWORD last_error = static_cast<DWORD>(code);
     const DWORD error_buffer_size = 10240;
     char error_buffer[error_buffer_size] = { 0 };
-    ::FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM,
+    ::FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM,
       NULL,
       last_error,
       MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
