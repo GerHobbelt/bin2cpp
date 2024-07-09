@@ -188,6 +188,9 @@ namespace bin2cpp
   class File
   {
   public:
+    // warning C5204: 'bin2cpp::File': class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly
+    virtual ~File() = default;
+
     virtual size_t getSize() const = 0;
     virtual const char * getFileName() const = 0;
     virtual const char * getFilePath() const = 0;
@@ -225,7 +228,7 @@ namespace bin2cpp
   {
   public:
     HelloworldHtmlFile() { build(); }
-    virtual ~HelloworldHtmlFile() {}
+    virtual ~HelloworldHtmlFile() override {}
     virtual size_t getSize() const { return 238; }
     virtual const char * getFileName() const { return "helloworld.html"; }
     virtual const char * getFilePath() const { return getFileName(); }

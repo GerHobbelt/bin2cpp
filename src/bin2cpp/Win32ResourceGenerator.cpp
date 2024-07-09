@@ -118,7 +118,7 @@ namespace bin2cpp
     fprintf(cpp, "    {\n");
     fprintf(cpp, "      loadResource();\n");
     fprintf(cpp, "    }\n");
-    fprintf(cpp, "    virtual ~%s() { unloadResource(); }\n", className.c_str());
+    fprintf(cpp, "    virtual ~%s() override { unloadResource(); }\n", className.c_str());
     fprintf(cpp, "    virtual size_t getSize() const { return mBufferSize; }\n");
     fprintf(cpp, "    virtual const char * getFileName() const { %s }\n", getImplOfGetFileName().c_str());
     fprintf(cpp, "    virtual const char * getFilePath() const { %s }\n", getImplOfGetFilePath().c_str());

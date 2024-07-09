@@ -349,6 +349,8 @@ namespace bin2cpp
     fprintf(header, "  class %s\n", mBaseClass.c_str());
     fprintf(header, "  {\n");
     fprintf(header, "  public:\n");
+		fprintf(header, "    virtual ~%s() = default;\n", mBaseClass.c_str());
+		fprintf(header, "\n");
     fprintf(header, "    virtual size_t getSize() const = 0;\n");
     fprintf(header, "    /* DEPRECATED */ virtual inline const char * getFilename() const { return getFileName(); }\n");
     fprintf(header, "    virtual const char * getFileName() const = 0;\n");
@@ -397,7 +399,9 @@ namespace bin2cpp
     fprintf(header, "  class %s\n", mBaseClass.c_str());
     fprintf(header, "  {\n");
     fprintf(header, "  public:\n");
-    fprintf(header, "    virtual size_t getSize() const = 0;\n");
+		fprintf(header, "    virtual ~%s() = default;\n", mBaseClass.c_str());
+		fprintf(header, "\n");
+		fprintf(header, "    virtual size_t getSize() const = 0;\n");
     fprintf(header, "    /* DEPRECATED */ virtual inline const char * getFilename() const { return getFileName(); }\n");
     fprintf(header, "    virtual const char * getFileName() const = 0;\n");
     fprintf(header, "    virtual const char * getFilePath() const = 0;\n");

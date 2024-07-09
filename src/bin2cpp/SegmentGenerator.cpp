@@ -99,7 +99,7 @@ namespace bin2cpp
     fprintf(cpp, "  {\n");
     fprintf(cpp, "  public:\n");
     fprintf(cpp, "    %s() { build(); }\n", className.c_str());
-    fprintf(cpp, "    virtual ~%s() {}\n", className.c_str());
+    fprintf(cpp, "    virtual ~%s() override {}\n", className.c_str());
     fprintf(cpp, "    virtual size_t getSize() const { return %u; }\n", fileSize);
     fprintf(cpp, "    virtual const char * getFileName() const { %s }\n", getImplOfGetFileName().c_str());
     fprintf(cpp, "    virtual const char * getFilePath() const { %s }\n", getImplOfGetFilePath().c_str());
