@@ -29,6 +29,7 @@
 #include "StringGenerator.h"
 #include "ArrayGenerator.h"
 #include "Win32ResourceGenerator.h"
+#include "ManagerGenerator.h"
 #include "Context.h"
 
 #include <stdlib.h>
@@ -43,6 +44,7 @@
 #include "rapidassist/timing.h"
 
 #include "common.h"
+#include "wildcard.h"
 
 using namespace bin2cpp;
 
@@ -73,6 +75,8 @@ static const char * DEFAULT_BASECLASSNAME = "File";
 static const CppEncoderEnum DEFAULT_ENCODING = CPP_ENCODER_OCT;
 static Dictionary identifiers_dictionary;   // unique values for identifiers
 static Dictionary output_files_dictionary;  // unique values for output file names
+#define DIRECTORY_FILTER_SEPARATOR_STR ":"
+static const char DIRECTORY_FILTER_SEPARATOR = DIRECTORY_FILTER_SEPARATOR_STR[0];
 
 const char * getErrorCodeDescription(const APP_ERROR_CODES & error_code)
 {
@@ -134,14 +138,13 @@ struct ARGUMENTS
 };
 
 //pre-declarations
-bool generateFile(const ARGUMENTS & args, const Context & c, const std::string & output_file_path, bin2cpp::IGenerator * generator);
-bool generateManagerFile(const ARGUMENTS & args, const Context & c, const std::string & output_file_path, bin2cpp::IGenerator * generator);
-APP_ERROR_CODES processInputFile(const ARGUMENTS & args, const Context & c, bin2cpp::IGenerator * generator);
-APP_ERROR_CODES processInputDirectory(const ARGUMENTS & args, const Context & c, bin2cpp::IGenerator * generator);
-APP_ERROR_CODES processManagerFiles(const ARGUMENTS & args, const Context & c, bin2cpp::IGenerator * generator);
-APP_ERROR_CODES processPlainOutput(const ARGUMENTS & args, const Context & c, bin2cpp::IGenerator * generator);
-std::string getDefaultFunctionIdentifier(const ARGUMENTS & args, const Context & c, Dictionary & identifiers_dictionary);
-std::string getDefaultHeaderFile(const ARGUMENTS & args, const Context & c);
+bool generateFile(const Context & c, const std::string & output_file_path, bin2cpp::IGenerator * generator);
+APP_ERROR_CODES processInputFile(const Context & c, bin2cpp::IGenerator * generator);
+APP_ERROR_CODES processInputDirectory(const Context & c, bin2cpp::IGenerator * generator);
+APP_ERROR_CODES processManagerFiles(const Context & c);
+APP_ERROR_CODES processPlainOutput(const Context & c, bin2cpp::IGenerator * generator);
+std::string getDefaultFunctionIdentifier(const Context & c, Dictionary & identifiers_dictionary);
+std::string getDefaultHeaderFile(const Context & c);
 
 void printHeader()
 {
@@ -159,40 +162,61 @@ void printUsage()
 #endif
 
   //usage string in docopt format. See http://docopt.org/
-  static const char usage[] = 
+  static const char usage[] =
     "Usage:\n"
     "  bin2cpp --file=<path> --output=<path> [--headerfile=<name>] [--identifier=<name>] [--generator=<name>] [--encoding=<name>] [--chunksize=<value>] [--namespace=<value>] [--baseclass=<name>] [--managerfile=<name>] [--registerfile] [--reportedfilepath=<value>] [--override] [--noheader] [--quiet]\n"
-    "  bin2cpp --dir=<path>  --output=<path> [--keepdirs] [--generator=<name>] [--encoding=<name>] [--chunksize=<value>] [--namespace=<value>] [--baseclass=<name>] [--managerfile=<name>] [--registerfile] [--override] [--noheader] [--quiet]\n"
+    "  bin2cpp --dir=<path>  --output=<path> [--keepdirs] [--generator=<name>] [--encoding=<name>] [--chunksize=<value>] [--namespace=<value>] [--baseclass=<name>] [--managerfile=<name>] [--registerfile] [--dirincludefilter=<value>] [--direxcludefilter=<value>] [--override] [--noheader] [--quiet]\n"
     "  bin2cpp --help\n"
     "  bin2cpp --version\n"
     "\n"
     "Options:\n"
-    "  --help                     Display this help message.\n"
-    "  --version                  Display this application version.\n"
-    "  --file=<path>              Path of the input file used for embedding as C++ source code.\n"
-    "  --dir=<path>               Path of the input directory used for embedding all files of the directory as C++ source code.\n"
-    "  --output=<path>            Path of the output directory where to create generated code. ie: ." SEPARATOR "generated_files\n"
-    "  --headerfile=<path>        File name or relative path of the generated C++ header file. If a relative path from the output directory is specified,\n"
-    "                             the #include statement in the generated cpp file will match the relative path. ie: SplashScreen.h\n"
-    "                             Default value: input file name (without extension)\n"
-    "  --identifier=<name>        Identifier of the function name that is used to get an instance of the file. ie: SplashScreen\n"
-    "                             Default value is based on input file with format 'NameExt'.\n"
-    "  --generator=<name>         Name of the generator to use. Possible values are 'segment', 'string', 'array' and 'win32'. [default: segment]\n"
-    "  --encoding=<name>          Name of the binary to string literal encoding to use. Possible values are 'oct' and 'hex'. [default: oct]\n"
-    "  --chunksize=<value>        Size in bytes of each string segments (bytes per LoC). [default: 200]\n"
-    "  --baseclass=<name>         The name of the interface for embedded files. [default: File]\n"
-    "  --namespace=<name>         The namespace of the generated source code. [default: bin2cpp]\n"
-    "  --reportedfilepath=<path>  The relative reported path of the File. Path returned when calling method getFilePath() of the File class. ie: images" SEPARATOR "DCIM" SEPARATOR "IMG_0001.jpg.\n"
-    "                             Automatically calculated when --dir mode is used.\n"
-    "  --managerfile=<path>       File name or relative path of the generated C++ header file for the FileManager class. ie: FileManager.h\n"
-    "  --registerfile             Register the generated file to the FileManager class.\n"
-    "                             This flags is automatically set when parameter 'managerfile' is specified.\n"
-    "  --keepdirs                 Keep the directory structure. Forces the output files to have the same\n"
-    "                             directory structure as the input files. Valid only when --dir is used.\n"
-    "  --plainoutput              Print the encoded string in plain format to stdout. Useful for scripts and integration with third party application.\n"
-    "  --override                 Tells bin2cpp to overwrite the destination files.\n"
-    "  --noheader                 Do not print program header to standard output.\n"
-    "  --quiet                    Do not log any message to standard output.\n"
+    "  --help                         Display this help message.\n"
+    "  --version                      Display this application version.\n"
+    "  --file=<path>                  Path of the input file used for embedding as C++ source code.\n"
+    "  --dir=<path>                   Path of the input directory used for embedding all files of the directory as C++ source code.\n"
+    "  --output=<path>                Path of the output directory where to create generated code. ie: ." SEPARATOR "generated_files\n"
+    "  --headerfile=<path>            File name or relative path of the generated C++ header file. If a relative path from the output directory is specified,\n"
+    "                                 the #include statement in the generated cpp file will match the relative path. ie: SplashScreen.h\n"
+    "                                 Default value: input file name (without extension)\n"
+    "  --identifier=<name>            Identifier of the function name that is used to get an instance of the file. ie: SplashScreen\n"
+    "                                 Default value is based on input file with format 'NameExt'.\n"
+    "  --generator=<name>             Name of the generator to use. Possible values are 'segment', 'string', 'array' and 'win32'. [default: segment]\n"
+    "  --encoding=<name>              Name of the binary to string literal encoding to use. Possible values are 'oct' and 'hex'. [default: oct]\n"
+    "  --chunksize=<value>            Size in bytes of each string segments (bytes per LoC). [default: 200]\n"
+    "  --baseclass=<name>             The name of the interface for embedded files. [default: File]\n"
+    "  --namespace=<name>             The namespace of the generated source code. [default: bin2cpp]\n"
+    "  --reportedfilepath=<path>      The relative reported path of the File. Path returned when calling method getFilePath() of the File class. ie: images" SEPARATOR "DCIM" SEPARATOR "IMG_0001.jpg.\n"
+    "                                 Automatically calculated when --dir mode is used.\n"
+    "  --managerfile=<path>           File name or relative path of the generated C++ header file for the FileManager class. ie: FileManager.h\n"
+    "  --registerfile                 Register the generated file to the FileManager class.\n"
+    "                                 This flags is automatically set when parameter 'managerfile' is specified.\n"
+    "  --dirincludefilter=<value>     Set a positive filter on the input directory to only select files matching the filter. Wildcard characters are accepted.\n"
+    "                                 Separate each filter with the character '" DIRECTORY_FILTER_SEPARATOR_STR "'. Valid only when --dir is used. See wildcard characters definition below.\n"
+    "  --direxcludefilter=<value>     Set a negative filter on the input directory to skip files matching the filter. Wildcard characters are accepted.\n"
+    "                                 Separate each filter with the character '" DIRECTORY_FILTER_SEPARATOR_STR "'. Valid only when --dir is used. See wildcard characters definition below.\n"
+    "                                 The exclude filter has precedence over the include filter.\n"
+    "  --keepdirs                     Keep the directory structure. Forces the output files to have the same\n"
+    "                                 directory structure as the input files. Valid only when --dir is used.\n"
+    "  --plainoutput                  Print the encoded string in plain format to stdout. Useful for scripts and integration with third party application.\n"
+    "  --override                     Tells bin2cpp to overwrite the destination files.\n"
+    "  --noheader                     Do not print program header to standard output.\n"
+    "  --quiet                        Do not log any message to standard output.\n"
+    "\n"
+    "  Wildcard characters:\n"
+    "    '?'            Matches any single character.\n"
+    "    '*'            Matches zero or more characters.\n"
+    "    '#'            Matches exactly one numeric digit (0-9).\n"
+    "    [charlist]     Matches any single character inside the brackets.\n"
+    "    [a-z]          Matches any single lowercase letter between 'a' and 'z'.\n"
+    "    [A-Z]          Matches any single uppercase letter between 'A' and 'A'.\n"
+    "    [0-9]          Matches any single digit between '0' and '9'.\n"
+    "    [a-zA-Z0-9]    Matches any single letter (uppercase or lowercase) or digit.\n"
+    "\n"
+    "    For example:\n"
+    "       'ker*##.???' would match files that starts with 'ker', and ends with 2 digits, a dot and then 3 characters."
+    "       --dir-include-filter=\"*.jpg:*.png\" would include all files whose file extension is 'jpg' or 'png'.\n"
+    "       --dir-exclude-filter=\"*.bak\" would exclude all backup files.\n"
+    "       --dir-include-filter=\"*.log\" --dir-exclude-filter=\"debug.log\" would include all log files but not the one named 'debug.log'."
     "\n";
   printf("%s", usage);
 }
@@ -320,14 +344,14 @@ int main(int argc, char* argv[])
     if (!ra::cli::ParseArgument("identifier", c.functionIdentifier, argc, argv))
     {
       //identifier is not manually specified.
-      c.functionIdentifier = getDefaultFunctionIdentifier(args, c, identifiers_dictionary);
+      c.functionIdentifier = getDefaultFunctionIdentifier(c, identifiers_dictionary);
     }
 
     //headerfile
     if (!ra::cli::ParseArgument("headerfile", c.headerFilename, argc, argv))
     {
       //use the file name without extension as 'headerfile'.
-      c.headerFilename = getDefaultHeaderFile(args, c);
+      c.headerFilename = getDefaultHeaderFile(c);
     }
   }
 
@@ -352,6 +376,21 @@ int main(int argc, char* argv[])
 
   c.registerFiles = ra::cli::ParseArgument("registerfile", dummy, argc, argv);
   
+  // directory include filters
+  std::string filter;
+  c.hasDirectoryIncludeFilters = ra::cli::ParseArgument("dirincludefilter", filter, argc, argv);
+  if ( c.hasDirectoryIncludeFilters )
+  {
+    strSplit(filter, DIRECTORY_FILTER_SEPARATOR, c.directoryIncludeFilters);
+  }
+
+  // directory exclude filters
+  c.hasDirectoryExcludeFilters = ra::cli::ParseArgument("direxcludefilter", filter, argc, argv);
+  if ( c.hasDirectoryExcludeFilters )
+  {
+    strSplit(filter, DIRECTORY_FILTER_SEPARATOR, c.directoryExcludeFilters);
+  }
+
   //force registerfile if managerfile is specified
   if (c.hasManagerFile)
   {
@@ -442,7 +481,7 @@ int main(int argc, char* argv[])
   //process file, directory or plain format
   if (c.plainOutput)
   {
-    APP_ERROR_CODES error = processPlainOutput(args, c, generator);
+    APP_ERROR_CODES error = processPlainOutput(c, generator);
     if (error != APP_ERROR_SUCCESS)
     {
       ra::logging::Log(ra::logging::LOG_ERROR, "%s.", getErrorCodeDescription(error));
@@ -451,7 +490,7 @@ int main(int argc, char* argv[])
   }
   else if (c.hasInputFile)
   {
-    APP_ERROR_CODES error = processInputFile(args, c, generator);
+    APP_ERROR_CODES error = processInputFile(c, generator);
     if (error != APP_ERROR_SUCCESS)
     {
       ra::logging::Log(ra::logging::LOG_ERROR, "%s.", getErrorCodeDescription(error));
@@ -460,7 +499,7 @@ int main(int argc, char* argv[])
   }
   else if (c.hasInputDir)
   {
-    APP_ERROR_CODES error = processInputDirectory(args, c, generator);
+    APP_ERROR_CODES error = processInputDirectory(c, generator);
     if (error != APP_ERROR_SUCCESS)
     {
       ra::logging::Log(ra::logging::LOG_ERROR, "%s.", getErrorCodeDescription(error));
@@ -471,7 +510,7 @@ int main(int argc, char* argv[])
   //should we also generate the FileManager class?
   if (c.hasManagerFile)
   {
-    APP_ERROR_CODES error = processManagerFiles(args, c, generator);
+    APP_ERROR_CODES error = processManagerFiles(c);
     if (error != APP_ERROR_SUCCESS)
     {
       ra::logging::Log(ra::logging::LOG_ERROR, "%s.", getErrorCodeDescription(error));
@@ -482,7 +521,7 @@ int main(int argc, char* argv[])
   return APP_ERROR_SUCCESS;
 }
 
-std::string getDefaultFunctionIdentifier(const ARGUMENTS & args, const Context & c, Dictionary & identifiers_dictionary)
+std::string getDefaultFunctionIdentifier(const Context & c, Dictionary & identifiers_dictionary)
 {
   std::string output;
 
@@ -493,7 +532,7 @@ std::string getDefaultFunctionIdentifier(const ARGUMENTS & args, const Context &
   return output;
 }
 
-std::string getDefaultHeaderFile(const ARGUMENTS & args, const Context & c)
+std::string getDefaultHeaderFile(const Context & c)
 {
   std::string output;
 
@@ -504,7 +543,7 @@ std::string getDefaultHeaderFile(const ARGUMENTS & args, const Context & c)
   return output;
 }
 
-APP_ERROR_CODES processInputFile(const ARGUMENTS & args, const Context & c, bin2cpp::IGenerator * generator)
+APP_ERROR_CODES processInputFile(const Context & c, bin2cpp::IGenerator * generator)
 {
   // printing info
   std::string info;
@@ -524,13 +563,14 @@ APP_ERROR_CODES processInputFile(const ARGUMENTS & args, const Context & c, bin2
   if (!ra::filesystem::FileExists(c.inputFilePath.c_str()))
     return APP_ERROR_INPUTFILENOTFOUND;
 
-  ARGUMENTS argsCopy = args;
-  Context cCopy = c;
-
   //prepare output files path
-  std::string cppFilename = cCopy.headerFilename;
-  ra::strings::Replace(cppFilename, ".hpp", ".cpp");
-  ra::strings::Replace(cppFilename, ".h", ".cpp");  
+  std::string headerExtention = ra::filesystem::GetFileExtention(c.headerFilename);
+  std::string cppFilename = c.headerFilename.substr(0, c.headerFilename.size() - headerExtention.size()) + "cpp"; // strip out header file's extension and add 'cpp'.
+
+  //create a copy of the context.
+  //we may have already generated files from a previous call to processInputFile().
+  //make sure the file paths are unique.
+  Context cCopy = c;
 
   //build unique output relative file paths
   cCopy.headerFilename = bin2cpp::getUniqueFilePath(cCopy.headerFilename, output_files_dictionary);
@@ -541,7 +581,7 @@ APP_ERROR_CODES processInputFile(const ARGUMENTS & args, const Context & c, bin2
   std::string outputCppPath = cCopy.outputDirPath + ra::filesystem::GetPathSeparatorStr() + cppFilename;
 
   //configure the generator
-  generator->setContext(c);
+  generator->setContext(cCopy);
 
   //build the output directory structure if required
   if (cCopy.keepDirectoryStructure)
@@ -560,11 +600,11 @@ APP_ERROR_CODES processInputFile(const ARGUMENTS & args, const Context & c, bin2
   }
 
   //process files
-  bool headerResult = generateFile(args, c, outputHeaderPath, generator);
+  bool headerResult = generateFile(c, outputHeaderPath, generator);
   if (!headerResult)
     return APP_ERROR_UNABLETOCREATEOUTPUTFILES;
   
-  bool cppResult =    generateFile(args, c, outputCppPath, generator);
+  bool cppResult =    generateFile(c, outputCppPath, generator);
   if (!cppResult)
     return APP_ERROR_UNABLETOCREATEOUTPUTFILES;
 
@@ -572,7 +612,7 @@ APP_ERROR_CODES processInputFile(const ARGUMENTS & args, const Context & c, bin2
   return APP_ERROR_SUCCESS;
 }
 
-APP_ERROR_CODES processInputDirectory(const ARGUMENTS & args, const Context& c, bin2cpp::IGenerator * generator)
+APP_ERROR_CODES processInputDirectory(const Context& c, bin2cpp::IGenerator * generator)
 {
   //check if input dir exists
   if (!ra::filesystem::DirectoryExists(c.inputDirPath.c_str()))
@@ -597,8 +637,28 @@ APP_ERROR_CODES processInputDirectory(const ARGUMENTS & args, const Context& c, 
   for(size_t i=0; i<files.size(); i++)
   {
     const std::string & file = files[i];
-    if (ra::filesystem::FileExists(file.c_str()))
-      tmp.push_back(file);
+
+    // entry is not a file
+    if ( !ra::filesystem::FileExists(file.c_str()) )
+      continue;
+
+    // should we exclude the file?
+    if ( c.hasDirectoryExcludeFilters )
+    {
+      bool matches_any = bin2cpp::wildcard_match_any(file, c.directoryExcludeFilters);
+      if ( matches_any )
+        continue; // force exclude this file.
+    }
+
+    // should we include the file?
+    if ( c.hasDirectoryIncludeFilters )
+    {
+      bool matches_any = bin2cpp::wildcard_match_any(file, c.directoryIncludeFilters);
+      if ( !matches_any )
+        continue; // force not include this file.
+    }
+
+    tmp.push_back(file);
   }
   files = tmp;
 
@@ -612,7 +672,6 @@ APP_ERROR_CODES processInputDirectory(const ARGUMENTS & args, const Context& c, 
     const std::string & file = files[i];
 
     //build a 'headerfile' and 'identifier' argument for this file...
-    ARGUMENTS argsCopy = args;
     Context cCopy = c;
 
     //replace 'dir' input by current file input
@@ -621,10 +680,10 @@ APP_ERROR_CODES processInputDirectory(const ARGUMENTS & args, const Context& c, 
     cCopy.inputFilePath = file;
 
     //use the file name without extension as 'headerfile'.
-    cCopy.headerFilename = getDefaultHeaderFile(argsCopy, cCopy);
+    cCopy.headerFilename = getDefaultHeaderFile(cCopy);
 
     //use the file name without extension as 'identifier'.
-    cCopy.functionIdentifier = getDefaultFunctionIdentifier(argsCopy, cCopy, identifiers_dictionary);
+    cCopy.functionIdentifier = getDefaultFunctionIdentifier(cCopy, identifiers_dictionary);
 
     //build a relative file path
     std::string relative_file_path = file;
@@ -654,7 +713,7 @@ APP_ERROR_CODES processInputDirectory(const ARGUMENTS & args, const Context& c, 
     }
 
     //process this file...
-    APP_ERROR_CODES error = processInputFile(argsCopy, cCopy, generator);
+    APP_ERROR_CODES error = processInputFile(cCopy, generator);
     if (error != APP_ERROR_SUCCESS)
       return error;
 
@@ -686,7 +745,7 @@ FILE_UPDATE_MODE getFileUpdateMode(const std::string & input_file_path, const st
   return UPDATING;
 }
 
-bool generateFile(const ARGUMENTS & args, const Context & c, const std::string & output_file_path, bin2cpp::IGenerator * generator)
+bool generateFile(const Context & c, const std::string & output_file_path, bin2cpp::IGenerator * generator)
 {
   FILE_UPDATE_MODE mode = getFileUpdateMode(c.inputFilePath, output_file_path, c.overrideExistingFiles);
 
@@ -717,38 +776,7 @@ bool generateFile(const ARGUMENTS & args, const Context & c, const std::string &
   return result;
 }
 
-bool generateManagerFile(const ARGUMENTS & args, const Context & c, const std::string & output_file_path, bin2cpp::IGenerator * generator)
-{
-  std::string processPath = ra::process::GetCurrentProcessPath();
-  FILE_UPDATE_MODE mode = getFileUpdateMode(processPath, output_file_path, c.overrideExistingFiles);
-
-  //writing message
-  ra::logging::Log(ra::logging::LOG_INFO, "%s file \"%s\"...", getUpdateModeText(mode), output_file_path.c_str());
-  
-  if (mode == SKIPPING)
-    return true; //skipping is success
-
-  //generate file
-  bool result = false;
-  if (isCppHeaderFile(output_file_path))
-  {
-    //generate header
-    result = generator->createManagerHeaderFile(output_file_path.c_str());
-  }
-  else
-  {
-    //generate cpp
-    result = generator->createManagerSourceFile(output_file_path.c_str());
-  }
-  if (!result)
-  {
-    //there was an error generating file
-    ra::logging::Log(ra::logging::LOG_ERROR, "%s failed!", getUpdateModeText(mode));
-  }
-  return result;
-}
-
-APP_ERROR_CODES processManagerFiles(const ARGUMENTS & args, const Context & c, bin2cpp::IGenerator * generator)
+APP_ERROR_CODES processManagerFiles(const Context & c)
 {
   // printing info
   std::string info;
@@ -765,12 +793,17 @@ APP_ERROR_CODES processManagerFiles(const ARGUMENTS & args, const Context & c, b
   std::string outputHeaderPath = c.outputDirPath + ra::filesystem::GetPathSeparatorStr() + c.managerHeaderFilename;
   std::string outputCppPath = c.outputDirPath + ra::filesystem::GetPathSeparatorStr() + cppFilename;
 
+  ManagerGenerator generator;
+
+  //configure the generator
+  generator.setContext(c);
+
   //process files
-  bool headerResult = generateManagerFile(args, c, outputHeaderPath, generator);
+  bool headerResult = generateFile(c, outputHeaderPath, &generator);
   if (!headerResult)
     return APP_ERROR_UNABLETOCREATEOUTPUTFILES;
   
-  bool cppResult =    generateManagerFile(args, c, outputCppPath, generator);
+  bool cppResult =    generateFile(c, outputCppPath, &generator);
   if (!cppResult)
     return APP_ERROR_UNABLETOCREATEOUTPUTFILES;
 
@@ -778,17 +811,14 @@ APP_ERROR_CODES processManagerFiles(const ARGUMENTS & args, const Context & c, b
   return APP_ERROR_SUCCESS;
 }
 
-APP_ERROR_CODES processPlainOutput(const ARGUMENTS & args, const Context & c, bin2cpp::IGenerator * generator)
+APP_ERROR_CODES processPlainOutput(const Context & c, bin2cpp::IGenerator * generator)
 {
   //check if input file exists
   if (!ra::filesystem::FileExists(c.inputFilePath.c_str()))
     return APP_ERROR_INPUTFILENOTFOUND;
 
-  ARGUMENTS argsCopy = args;
-  Context cCopy = c;
-
   //configure the generator
-  generator->setContext(cCopy);
+  generator->setContext(c);
 
   //process file
   bool result = generator->printFileContent();
