@@ -34,6 +34,8 @@ namespace bin2cpp
   class IGenerator
   {
   public:
+	// fix warning C5204: class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly
+	virtual ~IGenerator() = default;
 
     ///<summary>
     ///Sets the current context for the generator.

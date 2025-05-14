@@ -354,7 +354,10 @@ namespace ra { namespace filesystem {
   /// </summary>
   class IProgressReport {
   public:
-    /// <summary>
+	// fix warning C5204: class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly
+	virtual ~IProgressReport() = default;
+
+	/// <summary>
     /// CopyFile() callback function.
     /// </summary>
     /// <param name="progress">The progress of the file copy. Ranges [0, 1] inclusive.</param>
