@@ -82,8 +82,15 @@ elseif (UNIX)
   # Get Linux distribution info.
   GetOsReleaseInfo(LINUX_DIST_NAME LINUX_DIST_VER )
 
+  if("${LINUX_DIST_VER}" STREQUAL "")
+    # Use the kernel version as a fallback
+    execute_process(COMMAND uname -r
+      OUTPUT_VARIABLE LINUX_DIST_VER
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+  endif()
+
   # Extract distribution MAJOR version
-  get_major_version(${LINUX_DIST_VER} LINUX_DIST_VER_MAJOR)
+  get_major_version("${LINUX_DIST_VER}" LINUX_DIST_VER_MAJOR)
 
   MESSAGE( STATUS "LINUX_DIST_NAME:             " ${LINUX_DIST_NAME} )
   MESSAGE( STATUS "LINUX_DIST_VER:              " ${LINUX_DIST_VER} )
