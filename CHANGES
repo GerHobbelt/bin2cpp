@@ -1,3 +1,7 @@
+Changes for 3.1.1:
+
+* Fixed issue #82: Use the kernel version as a fallback
+
 Changes for 3.1.0:
 
 * New feature: Support for generating C code.
