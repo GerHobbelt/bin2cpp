@@ -285,7 +285,7 @@ namespace bin2cpp
     fprintf(fout, "  return true;\n");
     fprintf(fout, "}\n");
     fprintf(fout, "\n");
-    fprintf(fout, "inline void %s_init()\n", functionIdentifier.c_str());
+    fprintf(fout, "static inline void %s_init()\n", functionIdentifier.c_str());
     fprintf(fout, "{\n");
     fprintf(fout, "  // remember we already initialized\n");
     fprintf(fout, "  if ( %s_initialized )\n", functionIdentifier.c_str());
@@ -301,6 +301,9 @@ namespace bin2cpp
     fprintf(fout, "  file->load = %s_load;\n", functionIdentifier.c_str());
     fprintf(fout, "  file->unload = %s_free;\n", functionIdentifier.c_str());
     fprintf(fout, "  file->save = %s_save;\n", functionIdentifier.c_str());
+    fprintf(fout, "\n");
+    fprintf(fout, "  // load file by default on init as in c++ implementation");
+    fprintf(fout, "  file->load();\n");
     if ( mContext.registerFiles )
     {
       fprintf(fout, "  \n");

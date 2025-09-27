@@ -223,11 +223,10 @@ void printUsage()
     "    [a-zA-Z0-9]    Matches any single letter (uppercase or lowercase) or digit.\n"
     "\n"
     "    For example:\n"
-    "       'ker*##.???' would match files that starts with 'ker', and ends with 2 digits, a dot and then 3 characters."
+    "       'ker*##.\?\?\?' would match files that starts with 'ker', and ends with 2 digits, a dot and then 3 characters.\n"
     "       --dir-include-filter=\"*.jpg:*.png\" would include all files whose file extension is 'jpg' or 'png'.\n"
     "       --dir-exclude-filter=\"*.bak\" would exclude all backup files.\n"
-    "       --dir-include-filter=\"*.log\" --dir-exclude-filter=\"debug.log\" would include all log files but not the one named 'debug.log'."
-    "\n";
+    "       --dir-include-filter=\"*.log\" --dir-exclude-filter=\"debug.log\" would include all log files but not the one named 'debug.log'.\n";
   printf("%s", usage);
 }
 
@@ -240,7 +239,8 @@ int main(int argc, char* argv[])
   args.version = false;
 
   Context c;
-  INameProvider& nameProvider = LegacyNameProvider();
+  LegacyNameProvider legacyNameProvider;
+  INameProvider& nameProvider = legacyNameProvider;
   std::string dummy;
 
   //help
@@ -823,12 +823,14 @@ APP_ERROR_CODES processManagerFiles(const Context & c)
   info << "...";
   ra::logging::Log(ra::logging::LOG_INFO, info.c_str());
 
+  const std::string& sourceFileExtension = "." + getDefaultCodeSourceFileExtension(c.code);
+
   //prepare output files path
   std::string cppFilename = c.managerHeaderFilename;
-  ra::strings::Replace(cppFilename, ".hpp", ".cpp");
-  ra::strings::Replace(cppFilename, ".h", ".cpp");
+  ra::strings::Replace(cppFilename, ".hpp", sourceFileExtension);
+  ra::strings::Replace(cppFilename, ".h", sourceFileExtension);
   std::string outputHeaderPath = c.outputDirPath + ra::filesystem::GetPathSeparatorStr() + c.managerHeaderFilename;
-  std::string outputCppPath = c.outputDirPath + ra::filesystem::GetPathSeparatorStr() + cppFilename;
+  std::string outputSourcePath = c.outputDirPath + ra::filesystem::GetPathSeparatorStr() + cppFilename;
 
   ManagerGenerator generator;
 
@@ -840,7 +842,7 @@ APP_ERROR_CODES processManagerFiles(const Context & c)
   if (!headerResult)
     return APP_ERROR_UNABLETOCREATEOUTPUTFILES;
   
-  bool cppResult =    generateOutputFile(c, outputCppPath, &generator);
+  bool cppResult =    generateOutputFile(c, outputSourcePath, &generator);
   if (!cppResult)
     return APP_ERROR_UNABLETOCREATEOUTPUTFILES;
 
