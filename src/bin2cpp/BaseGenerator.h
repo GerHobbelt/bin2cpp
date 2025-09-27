@@ -46,6 +46,8 @@ namespace bin2cpp
     //same header file for all generators
     virtual bool createCppHeaderFile(const char * header_file_path);
     virtual bool printFileContent();
+    virtual bool createCHeaderFile(const char* file_path);
+    virtual bool createCSourceFile(const char* file_path);
 
   protected:
 
@@ -60,6 +62,8 @@ namespace bin2cpp
     virtual std::string getClassMacroGuardPrefix();
     virtual std::string getImplOfGetFileName();
     virtual std::string getImplOfGetFilePath();
+    virtual std::string getFileClassFileName();
+    virtual std::string getFileClassFilePath();
 
     //attributes
     Context mContext;

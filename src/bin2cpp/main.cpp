@@ -31,6 +31,8 @@
 #include "Win32ResourceGenerator.h"
 #include "ManagerGenerator.h"
 #include "Context.h"
+#include "INameProvider.h"
+#include "LegacyNameProvider.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -57,7 +59,8 @@ enum APP_ERROR_CODES
   APP_ERROR_TOOMANYARGUMENTS,
   APP_ERROR_INPUTDIRNOTFOUND,
   AAP_ERROR_NOTSUPPORTED,
-  APP_ERROR_OPERATIONHASFAILED
+  APP_ERROR_OPERATIONHASFAILED,
+  APP_ERROR_INVALIDVALUE,
 };
 
 enum FILE_UPDATE_MODE
@@ -70,9 +73,12 @@ enum FILE_UPDATE_MODE
 
 //default values
 static const size_t DEFAULT_CHUNK_SIZE = 200;
-static const char * DEFAULT_NAMESPACE = "bin2cpp";
-static const char * DEFAULT_BASECLASSNAME = "File";
+static const char * DEFAULT_NAMESPACE_CPP = "bin2cpp";
+static const char * DEFAULT_NAMESPACE_C = "bin2c";
+static const char * DEFAULT_BASECLASS_NAME_CPP = "File";
+static const char * DEFAULT_BASECLASS_NAME_C = "Bin2cFile";
 static const CppEncoderEnum DEFAULT_ENCODING = CPP_ENCODER_OCT;
+static const CodeGenerationEnum DEFAULT_CODE_GENERATION = CODE_GENERATION_CPP;
 static Dictionary identifiers_dictionary;   // unique values for identifiers
 static Dictionary output_files_dictionary;  // unique values for output file names
 #define DIRECTORY_FILTER_SEPARATOR_STR ":"
@@ -105,6 +111,9 @@ const char * getErrorCodeDescription(const APP_ERROR_CODES & error_code)
     break;
   case APP_ERROR_OPERATIONHASFAILED:
     return "Operation has failed";
+    break;
+  case APP_ERROR_INVALIDVALUE:
+    return "Invalid value";
     break;
   default:
     return "Unknown error";
@@ -140,11 +149,9 @@ struct ARGUMENTS
 //pre-declarations
 bool generateOutputFile(const Context & c, const std::string & output_file_path, bin2cpp::IGenerator * generator);
 APP_ERROR_CODES processInputFile(const Context & c, bin2cpp::IGenerator * generator);
-APP_ERROR_CODES processInputDirectory(const Context & c, bin2cpp::IGenerator * generator);
+APP_ERROR_CODES processInputDirectory(const Context & c, bin2cpp::INameProvider* nameProvider, bin2cpp::IGenerator * generator);
 APP_ERROR_CODES processManagerFiles(const Context & c);
 APP_ERROR_CODES processPlainOutput(const Context & c, bin2cpp::IGenerator * generator);
-std::string getDefaultFunctionIdentifier(const Context & c, Dictionary & identifiers_dictionary);
-std::string getDefaultHeaderFile(const Context & c);
 
 void printHeader()
 {
@@ -198,6 +205,7 @@ void printUsage()
     "  --keepdirs                     Keep the directory structure. Forces the output files to have the same\n"
     "                                 directory structure as the input files. Valid only when --dir is used.\n"
     "  --plainoutput                  Print the encoded string in plain format to stdout. Useful for scripts and integration with third party application.\n"
+    "  --code                         Define the programming language output for code generation. Supported values are 'c', 'cpp', 'c++'.\n"
     "  --override                     Tells bin2cpp to overwrite the destination files.\n"
     "  --noheader                     Do not print program header to standard output.\n"
     "  --quiet                        Do not log any message to standard output.\n"
@@ -230,7 +238,7 @@ int main(int argc, char* argv[])
   args.version = false;
 
   Context c;
-
+  INameProvider& nameProvider = LegacyNameProvider();
   std::string dummy;
 
   //help
@@ -338,20 +346,39 @@ int main(int argc, char* argv[])
 
   //optional arguments
 
+  std::string codeStr;
+  if ( ra::cli::ParseArgument("code", codeStr, argc, argv) )
+  {
+    CodeGenerationEnum codeTmp = parseCode(codeStr);
+    if ( codeTmp == CodeGenerationEnum::CODE_GENERATION_UNKNOW )
+    {
+      APP_ERROR_CODES error = APP_ERROR_INVALIDVALUE;
+      ra::logging::Log(ra::logging::LOG_ERROR, "%s (code)", getErrorCodeDescription(error));
+      printUsage();
+      return error;
+    }
+
+    c.code = codeTmp;
+  }
+  else
+  {
+    c.code = DEFAULT_CODE_GENERATION;
+  }
+
   if (c.hasInputFile)
   {
     //identifier
     if (!ra::cli::ParseArgument("identifier", c.functionIdentifier, argc, argv))
     {
       //identifier is not manually specified.
-      c.functionIdentifier = getDefaultFunctionIdentifier(c, identifiers_dictionary);
+      c.functionIdentifier = nameProvider.getDefaultFunctionIdentifier(c.inputFilePath, identifiers_dictionary);
     }
 
     //headerfile
     if (!ra::cli::ParseArgument("headerfile", c.headerFilename, argc, argv))
     {
       //use the file name without extension as 'headerfile'.
-      c.headerFilename = getDefaultHeaderFile(c);
+      c.headerFilename = nameProvider.getDefaultHeaderFile(c.inputFilePath);
     }
   }
 
@@ -366,12 +393,31 @@ int main(int argc, char* argv[])
 
   if (!ra::cli::ParseArgument("namespace", c.codeNamespace, argc, argv))
   {
-    c.codeNamespace = DEFAULT_NAMESPACE;
+    switch ( c.code )
+    {
+    default:
+    case CODE_GENERATION_CPP:
+      c.codeNamespace = DEFAULT_NAMESPACE_CPP;
+      break;
+    case CODE_GENERATION_C:
+      c.codeNamespace = DEFAULT_NAMESPACE_C;
+      break;
+    };
+
   }
 
   if (!ra::cli::ParseArgument("baseclass", c.baseClass, argc, argv))
   {
-    c.baseClass = DEFAULT_BASECLASSNAME;
+    switch ( c.code )
+    {
+      default:
+      case CODE_GENERATION_CPP:
+        c.baseClass = DEFAULT_BASECLASS_NAME_CPP;
+        break;
+      case CODE_GENERATION_C:
+        c.baseClass = DEFAULT_BASECLASS_NAME_C;
+        break;
+    };
   }
 
   c.registerFiles = ra::cli::ParseArgument("registerfile", dummy, argc, argv);
@@ -417,7 +463,7 @@ int main(int argc, char* argv[])
       c.cppEncoder = CPP_ENCODER_HEX;
     else
     {
-      APP_ERROR_CODES error = APP_ERROR_MISSINGARGUMENTS;
+      APP_ERROR_CODES error = APP_ERROR_INVALIDVALUE;
       ra::logging::Log(ra::logging::LOG_ERROR, "%s (encoding)", getErrorCodeDescription(error));
       printUsage();
       return error;
@@ -499,7 +545,7 @@ int main(int argc, char* argv[])
   }
   else if (c.hasInputDir)
   {
-    APP_ERROR_CODES error = processInputDirectory(c, generator);
+    APP_ERROR_CODES error = processInputDirectory(c, &nameProvider, generator);
     if (error != APP_ERROR_SUCCESS)
     {
       ra::logging::Log(ra::logging::LOG_ERROR, "%s.", getErrorCodeDescription(error));
@@ -519,28 +565,6 @@ int main(int argc, char* argv[])
   }
 
   return APP_ERROR_SUCCESS;
-}
-
-std::string getDefaultFunctionIdentifier(const Context & c, Dictionary & identifiers_dictionary)
-{
-  std::string output;
-
-  //use the file name without extension as 'identifier'.
-  output = getUniqueFunctionIdentifierFromPath(c.inputFilePath.c_str(), identifiers_dictionary);
-  output = ra::strings::CapitalizeFirstCharacter(output);
-
-  return output;
-}
-
-std::string getDefaultHeaderFile(const Context & c)
-{
-  std::string output;
-
-  //use the file name without extension as 'headerfile'.
-  output = ra::filesystem::GetFilenameWithoutExtension(c.inputFilePath.c_str());
-  output += ".h";
-
-  return output;
 }
 
 APP_ERROR_CODES processInputFile(const Context & c, bin2cpp::IGenerator * generator)
@@ -564,8 +588,9 @@ APP_ERROR_CODES processInputFile(const Context & c, bin2cpp::IGenerator * genera
     return APP_ERROR_INPUTFILENOTFOUND;
 
   //prepare output files path
-  std::string headerExtention = ra::filesystem::GetFileExtention(c.headerFilename);
-  std::string cppFilename = c.headerFilename.substr(0, c.headerFilename.size() - headerExtention.size()) + "cpp"; // strip out header file's extension and add 'cpp'.
+  const std::string   headerExtention = ra::filesystem::GetFileExtention(c.headerFilename);
+  const std::string & sourceExtension = getDefaultCodeSourceFileExtension(c.code);
+  std::string sourceFilename = c.headerFilename.substr(0, c.headerFilename.size() - headerExtention.size()) + sourceExtension; // strip out header file's extension and add 'cpp'.
 
   //create a copy of the context.
   //we may have already generated files from a previous call to processInputFile().
@@ -574,11 +599,11 @@ APP_ERROR_CODES processInputFile(const Context & c, bin2cpp::IGenerator * genera
 
   //build unique output relative file paths
   cCopy.headerFilename = bin2cpp::getUniqueFilePath(cCopy.headerFilename, output_files_dictionary);
-  cppFilename = bin2cpp::getUniqueFilePath(cppFilename, output_files_dictionary);
+  sourceFilename = bin2cpp::getUniqueFilePath(sourceFilename, output_files_dictionary);
 
   //build full absolute paths
   std::string outputHeaderPath = cCopy.outputDirPath + ra::filesystem::GetPathSeparatorStr() + cCopy.headerFilename;
-  std::string outputCppPath = cCopy.outputDirPath + ra::filesystem::GetPathSeparatorStr() + cppFilename;
+  std::string outputSourcePath = cCopy.outputDirPath + ra::filesystem::GetPathSeparatorStr() + sourceFilename;
 
   //configure the generator
   generator->setContext(cCopy);
@@ -604,7 +629,7 @@ APP_ERROR_CODES processInputFile(const Context & c, bin2cpp::IGenerator * genera
   if (!headerResult)
     return APP_ERROR_UNABLETOCREATEOUTPUTFILES;
   
-  bool cppResult =    generateOutputFile(c, outputCppPath, generator);
+  bool cppResult =    generateOutputFile(c, outputSourcePath, generator);
   if (!cppResult)
     return APP_ERROR_UNABLETOCREATEOUTPUTFILES;
 
@@ -612,7 +637,7 @@ APP_ERROR_CODES processInputFile(const Context & c, bin2cpp::IGenerator * genera
   return APP_ERROR_SUCCESS;
 }
 
-APP_ERROR_CODES processInputDirectory(const Context& c, bin2cpp::IGenerator * generator)
+APP_ERROR_CODES processInputDirectory(const Context& c, bin2cpp::INameProvider * nameProvider, bin2cpp::IGenerator * generator)
 {
   //check if input dir exists
   if (!ra::filesystem::DirectoryExists(c.inputDirPath.c_str()))
@@ -680,10 +705,10 @@ APP_ERROR_CODES processInputDirectory(const Context& c, bin2cpp::IGenerator * ge
     cCopy.inputFilePath = file;
 
     //use the file name without extension as 'headerfile'.
-    cCopy.headerFilename = getDefaultHeaderFile(cCopy);
+    cCopy.headerFilename = nameProvider->getDefaultHeaderFile(cCopy.inputFilePath);
 
     //use the file name without extension as 'identifier'.
-    cCopy.functionIdentifier = getDefaultFunctionIdentifier(cCopy, identifiers_dictionary);
+    cCopy.functionIdentifier = nameProvider->getDefaultFunctionIdentifier(cCopy.inputFilePath, identifiers_dictionary);
 
     //build a relative file path
     std::string relative_file_path = file;
@@ -757,15 +782,25 @@ bool generateOutputFile(const Context & c, const std::string & output_file_path,
 
   //generate file
   bool result = false;
-  if (isCppHeaderFile(output_file_path))
+  if (c.code == CODE_GENERATION_CPP && isCppHeaderFile(output_file_path))
   {
-    //generate header
+    //generate C++ header
     result = generator->createCppHeaderFile(output_file_path.c_str());
   }
-  else
+  else if ( c.code == CODE_GENERATION_CPP)
   {
-    //generate cpp
+    //generate C++ source
     result = generator->createCppSourceFile(output_file_path.c_str());
+  }
+  else if ( c.code == CODE_GENERATION_C && isCHeaderFile(output_file_path) )
+  {
+    //generate C header
+    result = generator->createCHeaderFile(output_file_path.c_str());
+  }
+  else if ( c.code == CODE_GENERATION_C )
+  {
+    //generate C source
+    result = generator->createCSourceFile(output_file_path.c_str());
   }
   if (!result)
   {
