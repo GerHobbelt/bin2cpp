@@ -27,11 +27,12 @@
 
 #include <string>
 #include "Context.h"
- 
+#include "ITemplateVariableLookup.h"
+
 namespace bin2cpp
 {
 
-  class IGenerator
+  class IGenerator : public virtual ITemplateVariableLookup
   {
   public:
 	// fix warning C5204: class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly
