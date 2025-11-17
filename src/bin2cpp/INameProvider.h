@@ -33,6 +33,8 @@ namespace bin2cpp
   class INameProvider
   {
   public:
+	// fix warning C5204: 'bin2cpp::INameProvider': class has virtual functions, but its trivial destructor is not virtual; instances of objects derived from this class may not be destructed correctly.
+	virtual ~INameProvider() = default;
 
     ///<summary>
     ///Get the name of a function identifier based on a given file path.
