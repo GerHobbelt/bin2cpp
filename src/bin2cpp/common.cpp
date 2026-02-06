@@ -327,8 +327,8 @@ namespace bin2cpp
       tmp.erase(0, directory.size() + 1); // +1 to erase the last \ character
 
 #ifdef _WIN32
-    //test special case for root directories
-    //convert C: to C:\ 
+    // test special case for root directories
+    // convert 'C:' to 'C:\' 
     if (directory.size() == 2 && directory[1] == ':')
     {
       if (isDriveLetter(directory[0]))

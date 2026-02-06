@@ -624,17 +624,10 @@ namespace ra { namespace strings {
 std::string& operator<<(std::string& str, const void * value) {
   size_t address = reinterpret_cast<size_t>(value);
   char buffer[1024];
-#ifdef _WIN32
-  if (ra::environment::IsProcess32Bit())
-    sprintf(buffer, "0x%08IX", address);
-  else if (ra::environment::IsProcess64Bit())
-    sprintf(buffer, "0x%016IX", address);
-#else
   if (ra::environment::IsProcess32Bit())
     sprintf(buffer, "0x%08zX", address);
   else if (ra::environment::IsProcess64Bit())
     sprintf(buffer, "0x%016zX", address);
-#endif
   str.append(buffer);
   return str;
 }

@@ -68,12 +68,12 @@ namespace ra { namespace console {
 #ifdef _WIN32
     HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hStdout == INVALID_HANDLE_VALUE) {
-      printf("GetStdHandle() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("GetStdHandle() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
     CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
     if (!GetConsoleScreenBufferInfo(hStdout, &csbi)) {
-      printf("GetConsoleScreenBufferInfo() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("GetConsoleScreenBufferInfo() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
     col = csbi.dwCursorPosition.X;
@@ -154,14 +154,14 @@ namespace ra { namespace console {
 #ifdef _WIN32
     HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hStdout == INVALID_HANDLE_VALUE) {
-      printf("GetStdHandle() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("GetStdHandle() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
     COORD coord;
     coord.X = col;
     coord.Y = row;
     if (!SetConsoleCursorPosition(hStdout, coord)) {
-      printf("SetConsoleCursorPosition() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("SetConsoleCursorPosition() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
 #elif defined(__linux__) || defined(__APPLE__)
@@ -175,12 +175,12 @@ namespace ra { namespace console {
 #ifdef _WIN32
     HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hStdout == INVALID_HANDLE_VALUE) {
-      printf("GetStdHandle() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("GetStdHandle() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
     CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
     if (!GetConsoleScreenBufferInfo(hStdout, &csbi)) {
-      printf("GetConsoleScreenBufferInfo() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("GetConsoleScreenBufferInfo() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
     width = (int)csbi.dwMaximumWindowSize.X;
@@ -326,12 +326,12 @@ namespace ra { namespace console {
 #ifdef _WIN32
     HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hStdout == INVALID_HANDLE_VALUE) {
-      printf("GetStdHandle() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("GetStdHandle() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
     CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
     if (!GetConsoleScreenBufferInfo(hStdout, &csbi)) {
-      printf("GetConsoleScreenBufferInfo() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("GetConsoleScreenBufferInfo() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
     COORD coord = { 0 , 0 };
@@ -339,19 +339,19 @@ namespace ra { namespace console {
     DWORD length;
     length = csbi.dwSize.X * csbi.dwSize.Y;
     if (!FillConsoleOutputCharacter(hStdout, TEXT(' '), length, coord, &number_of_chars_written)) {
-      printf("FillConsoleOutputCharacter() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("FillConsoleOutputCharacter() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
     if (!GetConsoleScreenBufferInfo(hStdout, &csbi)) {
-      printf("GetConsoleScreenBufferInfo() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("GetConsoleScreenBufferInfo() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
     if (!FillConsoleOutputAttribute(hStdout, csbi.wAttributes, length, coord, &number_of_chars_written)) {
-      printf("FillConsoleOutputAttribute() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("FillConsoleOutputAttribute() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
     if (!SetConsoleCursorPosition(hStdout, coord)) {
-      printf("SetConsoleCursorPosition() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("SetConsoleCursorPosition() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
 #elif defined(__linux__) || defined(__APPLE__)
@@ -614,12 +614,12 @@ namespace ra { namespace console {
 
     HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hStdout == INVALID_HANDLE_VALUE) {
-      printf("GetStdHandle() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("GetStdHandle() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
 
     if (!SetConsoleTextAttribute(hStdout, foreground_attribute | background_attribute)) {
-      printf("SetConsoleTextAttribute() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("SetConsoleTextAttribute() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
 #elif defined(__linux__) || defined(__APPLE__)
@@ -743,12 +743,12 @@ namespace ra { namespace console {
 #ifdef _WIN32
     HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hStdout == INVALID_HANDLE_VALUE) {
-      printf("GetStdHandle() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("GetStdHandle() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
     CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
     if (!GetConsoleScreenBufferInfo(hStdout, &csbi)) {
-      printf("GetConsoleScreenBufferInfo() error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("GetConsoleScreenBufferInfo() error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return;
     }
 
@@ -904,12 +904,12 @@ namespace ra { namespace console {
     //https://stackoverflow.com/questions/9009333/how-to-check-if-the-program-is-run-from-a-console
     HWND hConsoleWnd = GetConsoleWindow();
     if (hConsoleWnd == NULL) {
-      printf("Failed calling GetConsoleWindow(). Error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("Failed calling GetConsoleWindow(). Error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return false;
     }
     DWORD console_process_id = 0;
     if (!GetWindowThreadProcessId(hConsoleWnd, &console_process_id)) {
-      printf("Failed calling GetWindowThreadProcessId(). Error: (%d), function '%s', line %d\n", GetLastError(), __FUNCTION__, __LINE__);
+      printf("Failed calling GetWindowThreadProcessId(). Error: (%d), function '%s', line %d\n", (int)GetLastError(), __FUNCTION__, __LINE__);
       return false;
     }
     DWORD dwCurrentProcessId = GetCurrentProcessId();
